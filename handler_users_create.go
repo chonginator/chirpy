@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -20,9 +20,6 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request)
 	type parameters struct {
 		Email string `json:"email"`
 	}
-	type response struct {
-		User
-	}
 
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
@@ -32,8 +29,8 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if params.Email == "" {
-		err := errors.New("email field is empty")
-		respondWithError(w, http.StatusBadRequest, "Email field is required", err)
+		err := fmt.Errorf("email field is empty")
+		respondWithError(w, http.StatusBadRequest, err.Error(), err)
 		return
 	}
 
@@ -43,12 +40,11 @@ func (cfg *apiConfig) handlerUsersCreate(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	
-	respondWithJSON(w, http.StatusCreated, response{
-		User: User{
+	respondWithJSON(w, http.StatusCreated, User{
 			ID: user.ID,
 			CreatedAt: user.CreatedAt,
 			UpdatedAt: user.UpdatedAt,
 			Email: user.Email,
 		},
-	})
+	)
 }
