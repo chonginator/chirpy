@@ -9,6 +9,6 @@ VALUES (
 )
 RETURNING *;
 
--- name: GetUser :one
+-- name: GetUserByEmail :one
 SELECT * FROM users
 WHERE email=$1;
