@@ -26,15 +26,15 @@ func (cfg *apiConfig) handlerChirpsCreate(w http.ResponseWriter, r *http.Request
 		UserID uuid.UUID `json:"user_id"`
 	}
 
-	tokenString, err := auth.GetBearerToken(r.Header)
+	token, err := auth.GetBearerToken(r.Header)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "No Bearer token", err)
+		respondWithError(w, http.StatusUnauthorized, "Couldn't find JWT", err)
 		return
 	}
 
-	userID, err := auth.ValidateJWT(tokenString, cfg.jwtSecret)
+	userID, err := auth.ValidateJWT(token, cfg.jwtSecret)
 	if err != nil {
-		respondWithError(w, http.StatusUnauthorized, "Invalid Bearer token", err)
+		respondWithError(w, http.StatusUnauthorized, "Couldn't validate JWT", err)
 		return
 	}
 	

@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/chonginator/chirpy/internal/auth"
@@ -13,7 +12,7 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Password string 				`json:"password"`
 		Email string 						`json:"email"`
-		ExpiresInSeconds string `json:"expires_in_seconds"`
+		ExpiresInSeconds int 		`json:"expires_in_seconds"`
 	}
 	type response struct {
 		User
@@ -40,22 +39,14 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expiresInSecondsDuration := time.Hour
-	if params.ExpiresInSeconds != "" {
-		expiresInSeconds, err := strconv.Atoi(params.ExpiresInSeconds)
-		if err != nil {
-			respondWithError(w, http.StatusBadRequest, "Error parsing expires_in_seconds request body field", err)
-			return
-		}
-
-		if expiresInSecondsDuration <= time.Hour {
-			expiresInSecondsDuration = time.Duration(expiresInSeconds) * time.Second
-		}
+	expirationTime := time.Hour
+	if params.ExpiresInSeconds > 0 && params.ExpiresInSeconds < int(time.Hour) {
+		expirationTime = time.Duration(params.ExpiresInSeconds) * time.Second
 	}
 
-	jwt, err := auth.MakeJWT(user.ID, cfg.jwtSecret, expiresInSecondsDuration)
+	accessToken, err := auth.MakeJWT(user.ID, cfg.jwtSecret, expirationTime)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error making JWT", err)
+		respondWithError(w, http.StatusInternalServerError, "Error making access JWT", err)
 		return
 	}
 
@@ -66,6 +57,6 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt: user.UpdatedAt,
 			Email: user.Email,
 		},
-		Token: jwt,
+		Token: accessToken,
 	})
 }

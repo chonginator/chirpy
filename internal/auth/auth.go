@@ -12,6 +12,14 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+type TokenType string
+const (
+	TokenTypeAccess TokenType = "chirpy-access"
+)
+
+var ErrNoAuthHeader = errors.New("no authorization header included in request")
+var ErrInvalidAuthHeader = errors.New("malformed authorization header")
+
 func HashPassword(password string) (string, error) {
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -26,46 +34,41 @@ func CheckPasswordHash(password, hash string) error {
 }
 
 func MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (string, error) {
+	signingKey := []byte(tokenSecret)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
-		Issuer: "chirpy",
+		Issuer: string(TokenTypeAccess),
 		IssuedAt: jwt.NewNumericDate(time.Now().UTC()),
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiresIn).UTC()),
 		Subject: userID.String(),
 	})
 
-	signedToken, err := token.SignedString([]byte(tokenSecret))
-	if err != nil {
-		return "", err
-	}
-
-	return signedToken, nil
+	return token.SignedString(signingKey)
 }
-
-const (
-	ErrInvalidToken = "invalid token"
-	ErrExpiredToken = "expired token"
-	ErrSignatureInvalid = "signature is invalid"
-)
 
 func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte(tokenSecret), nil
 	})
 	if err != nil {
-		if errors.Is(err, jwt.ErrTokenExpired) {
-			return uuid.UUID{}, fmt.Errorf("%s: %w", ErrExpiredToken, err)
-		}
-		return uuid.UUID{}, fmt.Errorf("%s: %w", ErrInvalidToken, err)
+		return uuid.Nil, err
 	}
 
 	userIDString, err := token.Claims.GetSubject()
 	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("%s: %w", ErrSignatureInvalid, err)
+		return uuid.Nil, err
+	}
+
+	issuer, err := token.Claims.GetIssuer()
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if issuer != string(TokenTypeAccess) {
+		return uuid.Nil, errors.New("invalid issuer")
 	}
 
 	userID, err := uuid.Parse(userIDString)
 	if err != nil {
-		return uuid.UUID{}, fmt.Errorf("%s: %w", ErrSignatureInvalid, err)
+		return uuid.Nil, fmt.Errorf("invalid user ID: %w", err)
 	}
 
 	return userID, nil
@@ -78,19 +81,15 @@ const (
 )
 
 func GetBearerToken(headers http.Header) (string, error) {
-	authorizationHeader := headers.Get("Authorization")
-	if authorizationHeader == "" {
-		return "", errors.New(ErrNoAuthorizationHeader)
+	authHeader := headers.Get("Authorization")
+	if authHeader == "" {
+		return "", ErrNoAuthHeader
 	}
 
-	if !strings.HasPrefix(authorizationHeader, "Bearer ") {
-		return "", errors.New(ErrInvalidBearerToken)
-	}
-	tokenStringSlice := strings.SplitN(authorizationHeader, "Bearer ", 2)
-	tokenString := tokenStringSlice[1]
-	if tokenString == "" {
-		return "", errors.New(ErrEmptyBearerToken)
+	splitAuthHeader := strings.SplitN(authHeader, " ", 2)
+	if len(splitAuthHeader) < 2 || splitAuthHeader[0] != "Bearer" {
+		return "", ErrInvalidAuthHeader
 	}
 
-	return tokenStringSlice[1], nil
+	return splitAuthHeader[1], nil
 }

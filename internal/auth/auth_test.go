@@ -1,12 +1,12 @@
 package auth
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
@@ -123,7 +123,7 @@ func TestValidateJWT(t *testing.T) {
 			tokenSecret: tokenSecret,
 			expiresIn: expiresIn1,
 			jwt: jwt1,
-			errorContains: ErrExpiredToken,
+			errorContains: jwt.ErrTokenExpired.Error(),
 		},
 		{
 			name: "Valid JWT",
@@ -139,15 +139,7 @@ func TestValidateJWT(t *testing.T) {
 			tokenSecret: "secret",
 			expiresIn: expiresIn2,
 			jwt: jwt2,
-			errorContains: ErrInvalidToken,
-		},
-		{
-			name: "Different user ID",
-			userID: uuid.New(),
-			tokenSecret: "secret",
-			expiresIn: expiresIn2,
-			jwt: jwt2,
-			errorContains: ErrSignatureInvalid,
+			errorContains: jwt.ErrSignatureInvalid.Error(),
 		},
 	}
 
@@ -166,26 +158,6 @@ func TestValidateJWT(t *testing.T) {
 }
 
 func TestGetBearerToken(t *testing.T) {
-	tokenString := "token_string"
-	tokenString2 := fmt.Sprintf("%s Bearer %s", tokenString, tokenString)
-
-	headers1 := http.Header{}
-	headers1.Add("Authorization", fmt.Sprintf("Bearer %s", tokenString))
-
-	headers2 := http.Header{}
-
-	headers3 := http.Header{}
-	headers3.Add("Authorization", fmt.Sprintf("Bearer%s", tokenString))
-
-	headers4 := http.Header{}
-	headers4.Add("Authorization", tokenString)
-
-	headers5 := http.Header{}
-	headers5.Add("Authorization", fmt.Sprintf("Bear %s", tokenString))
-
-	headers6 := http.Header{}
-	headers6.Add("Authorization", fmt.Sprintf("Bearer %s", tokenString2))
-
 	tests := []struct{
 		name string
 		headers http.Header
@@ -194,38 +166,48 @@ func TestGetBearerToken(t *testing.T) {
 	}{
 		{
 			name: "Valid Bearer token",
-			headers: headers1,
-			expected: tokenString,
+			headers: http.Header{
+				"Authorization": []string{"Bearer token_string"},
+			},
+			expected: "token_string",
 			errorContains: "",
 		},
 		{
-			name: "No Bearer token",
-			headers: headers2,
+			name: "Missing Authorization header",
+			headers: http.Header{},
 			expected: "",
 			errorContains: ErrNoAuthorizationHeader,
 		},
 		{
 			name: "No space",
-			headers: headers3,
+			headers: http.Header{
+				"Authorization": []string{"Bearertoken_string"},
+			},
 			expected: "",
-			errorContains: ErrInvalidBearerToken,
+			errorContains: ErrInvalidAuthHeader.Error(),
 		},
 		{
 			name: "No prefix",
-			headers: headers4,
+			headers: http.Header{
+				"Authorization": []string{"token_string"},
+			},
 			expected: "",
-			errorContains: ErrInvalidBearerToken,
+			errorContains: ErrInvalidAuthHeader.Error(),
 		},
 		{
 			name: "Invalid prefix",
-			headers: headers5,
+			headers: http.Header{
+				"Authorization": []string{"Bear token_string"},
+			},
 			expected: "",
-			errorContains: ErrInvalidBearerToken,
+			errorContains: ErrInvalidAuthHeader.Error(),
 		},
 		{
 			name: "Multiple prefixes",
-			headers: headers6,
-			expected: tokenString2,
+			headers: http.Header{
+				"Authorization": []string{"Bearer token_string Bearer token_string"},
+			},
+			expected: "token_string Bearer token_string",
 			errorContains: "",
 		},
 	}

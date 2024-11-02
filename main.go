@@ -36,6 +36,11 @@ func main() {
 	if platform == "" {
 		log.Fatalf("PLATFORM must be set")
 	}
+	
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatalf("JWT_SECRET environment variable is not set")
+	}
 
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
@@ -43,11 +48,6 @@ func main() {
 	}
 	defer db.Close()
 	dbQueries := database.New(db)
-
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		log.Fatalf("Error loading JWT secret")
-	}
 
 	apiCfg := apiConfig{
 		fileserverHits: atomic.Int32{},
