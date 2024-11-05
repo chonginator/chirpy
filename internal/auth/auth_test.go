@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -90,62 +89,40 @@ func TestValidateJWT(t *testing.T) {
 	userID := uuid.New()
 	tokenSecret := "shhhhh"
 
-	expiresIn1, err := time.ParseDuration("-1m")
-	if err != nil {
-		t.Fatalf("Couldn't parse time duration string: %v", err)
-	}
-	expiresIn2, err := time.ParseDuration("1m")
-	if err != nil {
-		t.Fatalf("Couldn't parse time duration string: %v", err)
-	}
-
-	jwt1, err := MakeJWT(userID, tokenSecret, expiresIn1)
-	if err != nil {
-		t.Fatalf("Couldn't make JWT: %v", err)
-	}
-
-	jwt2, err := MakeJWT(userID, tokenSecret, expiresIn2)
+	validToken, err := MakeJWT(userID, tokenSecret)
 	if err != nil {
 		t.Fatalf("Couldn't make JWT: %v", err)
 	}
 
 	tests := []struct{
 		name string
-		userID uuid.UUID
+		tokenString string
 		tokenSecret string
-		expiresIn time.Duration
-		jwt string
 		errorContains string
 	}{
 		{
-			name: "Expired token",
-			userID: userID,
-			tokenSecret: tokenSecret,
-			expiresIn: expiresIn1,
-			jwt: jwt1,
-			errorContains: jwt.ErrTokenExpired.Error(),
-		},
-		{
 			name: "Valid JWT",
-			userID: userID,
+			tokenString: validToken,
 			tokenSecret: tokenSecret,
-			expiresIn: expiresIn2,
-			jwt: jwt2,
 			errorContains: "",
 		},
 		{
-			name: "Different token secret",
-			userID: userID,
+			name: "Invalid JWT",
+			tokenString: "notatoken",
+			tokenSecret: tokenSecret,
+			errorContains: jwt.ErrTokenMalformed.Error(),
+		},
+		{
+			name: "Wrong secret",
+			tokenString: validToken,
 			tokenSecret: "secret",
-			expiresIn: expiresIn2,
-			jwt: jwt2,
 			errorContains: jwt.ErrSignatureInvalid.Error(),
 		},
 	}
 
 	for i, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err = ValidateJWT(tc.jwt, tc.tokenSecret)
+			_, err = ValidateJWT(tc.tokenString, tc.tokenSecret)
 			if err != nil && !strings.Contains(err.Error(), tc.errorContains) {
 				t.Errorf("Test %v - '%s' FAIL: unexpected error: %v", i, tc.name, err)
 			} else if err != nil && tc.errorContains == "" {
