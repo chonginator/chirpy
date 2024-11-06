@@ -6,17 +6,18 @@ import (
 	"time"
 
 	"github.com/chonginator/chirpy/internal/auth"
+	"github.com/chonginator/chirpy/internal/database"
 )
 
 func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Password string 				`json:"password"`
 		Email string 						`json:"email"`
-		ExpiresInSeconds int 		`json:"expires_in_seconds"`
 	}
 	type response struct {
 		User
 		Token string						`json:"token"`
+		RefreshToken string			`json:"refresh_token"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -39,14 +40,24 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expirationTime := time.Hour
-	if params.ExpiresInSeconds > 0 && params.ExpiresInSeconds < int(time.Hour) {
-		expirationTime = time.Duration(params.ExpiresInSeconds) * time.Second
-	}
-
-	accessToken, err := auth.MakeJWT(user.ID, cfg.jwtSecret, expirationTime)
+	accessToken, err := auth.MakeJWT(user.ID, cfg.jwtSecret)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error making access JWT", err)
+		return
+	}
+
+	refreshToken, err := auth.MakeRefreshToken()
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error making refresh token", err)
+		return
+	}
+	dbRefreshToken, err := cfg.db.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
+		Token: refreshToken,
+		UserID: user.ID,
+		ExpiresAt: time.Now().AddDate(0, 0, 60).UTC(),
+	})
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error creating refresh token in database", err)
 		return
 	}
 
@@ -58,5 +69,6 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 			Email: user.Email,
 		},
 		Token: accessToken,
+		RefreshToken: dbRefreshToken.Token,
 	})
 }
