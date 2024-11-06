@@ -11,13 +11,13 @@ import (
 
 func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Password string 				`json:"password"`
-		Email string 						`json:"email"`
+		Password string `json:"password"`
+		Email    string `json:"email"`
 	}
 	type response struct {
 		User
-		Token string						`json:"token"`
-		RefreshToken string			`json:"refresh_token"`
+		Token        string `json:"token"`
+		RefreshToken string `json:"refresh_token"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -40,7 +40,7 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accessToken, err := auth.MakeJWT(user.ID, cfg.jwtSecret)
+	accessToken, err := auth.MakeJWT(user.ID, cfg.jwtSecret, time.Hour)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error making access JWT", err)
 		return
@@ -51,9 +51,9 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusInternalServerError, "Error making refresh token", err)
 		return
 	}
-	dbRefreshToken, err := cfg.db.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
-		Token: refreshToken,
-		UserID: user.ID,
+	_, err = cfg.db.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
+		Token:     refreshToken,
+		UserID:    user.ID,
 		ExpiresAt: time.Now().AddDate(0, 0, 60).UTC(),
 	})
 	if err != nil {
@@ -63,12 +63,12 @@ func (cfg *apiConfig) handlerLogin(w http.ResponseWriter, r *http.Request) {
 
 	respondWithJSON(w, http.StatusOK, response{
 		User: User{
-			ID: user.ID,
+			ID:        user.ID,
 			CreatedAt: user.CreatedAt,
 			UpdatedAt: user.UpdatedAt,
-			Email: user.Email,
+			Email:     user.Email,
 		},
-		Token: accessToken,
-		RefreshToken: dbRefreshToken.Token,
+		Token:        accessToken,
+		RefreshToken: refreshToken,
 	})
 }

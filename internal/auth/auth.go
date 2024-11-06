@@ -15,6 +15,7 @@ import (
 )
 
 type TokenType string
+
 const (
 	TokenTypeAccess TokenType = "chirpy-access"
 )
@@ -35,13 +36,13 @@ func CheckPasswordHash(password, hash string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 }
 
-func MakeJWT(userID uuid.UUID, tokenSecret string) (string, error) {
+func MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (string, error) {
 	signingKey := []byte(tokenSecret)
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{
-		Issuer: string(TokenTypeAccess),
-		IssuedAt: jwt.NewNumericDate(time.Now().UTC()),
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour).UTC()),
-		Subject: userID.String(),
+		Issuer:    string(TokenTypeAccess),
+		IssuedAt:  jwt.NewNumericDate(time.Now().UTC()),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiresIn).UTC()),
+		Subject:   userID.String(),
 	})
 
 	return token.SignedString(signingKey)
@@ -77,8 +78,8 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 }
 
 const (
-	ErrInvalidBearerToken = "invalid bearer token"
-	ErrEmptyBearerToken = "empty bearer token"
+	ErrInvalidBearerToken    = "invalid bearer token"
+	ErrEmptyBearerToken      = "empty bearer token"
 	ErrNoAuthorizationHeader = "no authorization header"
 )
 
@@ -98,12 +99,11 @@ func GetBearerToken(headers http.Header) (string, error) {
 }
 
 func MakeRefreshToken() (string, error) {
-	token := make([]byte, 256)
+	token := make([]byte, 32)
 	_, err := rand.Read(token)
 	if err != nil {
 		return "", err
 	}
 
-	encodedToken := hex.EncodeToString(token)
-	return encodedToken, nil
+	return hex.EncodeToString(token), nil
 }

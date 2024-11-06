@@ -2,6 +2,7 @@ package main
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/chonginator/chirpy/internal/auth"
 )
@@ -23,7 +24,7 @@ func (cfg *apiConfig) handlerRefresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	accessToken, err := auth.MakeJWT(user.ID, cfg.jwtSecret)
+	accessToken, err := auth.MakeJWT(user.ID, cfg.jwtSecret, time.Hour)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error making access token", err)
 		return
