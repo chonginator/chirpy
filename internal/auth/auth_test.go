@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
@@ -89,7 +90,7 @@ func TestValidateJWT(t *testing.T) {
 	userID := uuid.New()
 	tokenSecret := "shhhhh"
 
-	validToken, err := MakeJWT(userID, tokenSecret)
+	validToken, err := MakeJWT(userID, tokenSecret, time.Hour)
 	if err != nil {
 		t.Fatalf("Couldn't make JWT: %v", err)
 	}
