@@ -46,7 +46,7 @@ func (cfg *apiConfig) handlerUsersUpdate(w http.ResponseWriter, r *http.Request)
 		HashedPassword: hashedPassword,
 	})
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Error updating user email and password", err)
+		respondWithError(w, http.StatusInternalServerError, "Couldn't update user", err)
 		return
 	}
 
