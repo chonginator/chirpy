@@ -9,6 +9,13 @@ import (
 )
 
 func (cfg *apiConfig) handlerChirpsDelete(w http.ResponseWriter, r *http.Request) {
+	chirpIDString := r.PathValue("chirpID")
+	chirpID, err := uuid.Parse(chirpIDString)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Invalid chirp ID", err)
+		return
+	}
+
 	accessToken, err := auth.GetBearerToken(r.Header)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, "Couldn't find JWT", err)
@@ -21,20 +28,19 @@ func (cfg *apiConfig) handlerChirpsDelete(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	userIDString := r.PathValue("userID")
-	userIDFromPath, err := uuid.Parse(userIDString)
+	chirp, err := cfg.db.GetChirpByID(r.Context(), chirpID)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Invalid user ID", err)
+		respondWithError(w, http.StatusBadRequest, "Couldn't find chirp", err)
 		return
 	}
 
-	if userID != userIDFromPath {
+	if chirp.UserID != userID {
 		err := errors.New("unauthorized action")
 		respondWithError(w, http.StatusForbidden, err.Error(), err)
 		return
 	}
 
-	err = cfg.db.DeleteChirp(r.Context(), userID)
+	err = cfg.db.DeleteChirp(r.Context(), chirpID)
 	if err != nil {
 		respondWithError(w, http.StatusNotFound, "Error deleting chirp", err)
 		return
