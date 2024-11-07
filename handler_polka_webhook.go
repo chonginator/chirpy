@@ -1,7 +1,9 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -28,14 +30,12 @@ func (cfg *apiConfig) handlerPolkaWebhook(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	_, err = cfg.db.GetUserByID(r.Context(), params.Data.UserID)
+	_, err = cfg.db.UpgradeToChirpyRed(r.Context(), params.Data.UserID)
 	if err != nil {
-		respondWithError(w, http.StatusNotFound, "Couldn't find user", err)
-		return
-	}
-
-	_, err = cfg.db.UpgradeUser(r.Context(), params.Data.UserID)
-	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondWithError(w, http.StatusNotFound, "Couldn't find user", err)
+			return
+		}
 		respondWithError(w, http.StatusInternalServerError, "Error upgrading user", err)
 		return
 	}
