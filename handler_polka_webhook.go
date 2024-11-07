@@ -9,10 +9,10 @@ import (
 
 func (cfg *apiConfig) handlerPolkaWebhook(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Event string			 `json:"event"`
-		Data struct {
+		Event string `json:"event"`
+		Data  struct {
 			UserID uuid.UUID `json:"user_id"`
-		} 							   `json:"data"`
+		} `json:"data"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -28,9 +28,15 @@ func (cfg *apiConfig) handlerPolkaWebhook(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	_, err = cfg.db.GetUserByID(r.Context(), params.Data.UserID)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "Couldn't find user", err)
+		return
+	}
+
 	_, err = cfg.db.UpgradeUser(r.Context(), params.Data.UserID)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Error upgrading user", err)
+		respondWithError(w, http.StatusInternalServerError, "Error upgrading user", err)
 		return
 	}
 
