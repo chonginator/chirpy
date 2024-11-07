@@ -107,3 +107,17 @@ func MakeRefreshToken() (string, error) {
 
 	return hex.EncodeToString(token), nil
 }
+
+func GetAPIKey(headers http.Header) (string, error) {
+	authHeader := headers.Get("Authorization")
+	if authHeader == "" {
+		return "", ErrNoAuthHeader
+	}
+
+	splitAuthHeader := strings.SplitN(authHeader, " ", 2)
+	if len(splitAuthHeader) < 2 || splitAuthHeader[0] != "ApiKey" {
+		return "", ErrInvalidAuthHeader
+	}
+
+	return splitAuthHeader[1], nil
+}
