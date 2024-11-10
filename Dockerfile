@@ -1,3 +1,3 @@
 FROM debian:stable-slim
-COPY chirpy
+COPY chirpy /bin/chirpy
 CMD ["/bin/chirpy"]
